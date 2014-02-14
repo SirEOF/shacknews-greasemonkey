@@ -238,12 +238,13 @@
 		button.setAttribute('style', 'color: ' + color + ' !important; font-weight: normal; padding: 0 0.25em; text-decoration: underline;');
 		button.appendChild(document.createTextNode(tag));
 		
-		button.addEventListener("click", function(e)
-		{
-			lolThread(tag, id);
-			e.preventDefault();
-		}, false);
 		
+		// store this stuff in data items instead of an anonymous handler function
+		button.dataset.loltag = tag;
+		button.dataset.threadid = id;
+		
+		button.addEventListener("click", lolThread);
+
 		var span = document.createElement("span");
 		span.appendChild(document.createTextNode("["));
 		span.appendChild(button);
@@ -330,12 +331,10 @@
 		return ''; 
 	}
 
-	function lolThread(tag, id)
+	function lolThread(e)
 	{
 		var moderation = ''; 
 		
-		if (tag == null) { tag = 'lol'; }
-
 		// find the user
 		if (username.length == 0)
 		{
@@ -343,15 +342,26 @@
 			return;
 		}
 
-		// Scrape the post's current moderation from the page (this is only done on Shacknews.com obviously) 
-		moderation = getModeration(id); 
-		if (moderation.length)
-		{
-			moderation = '&moderation=' + encodeURIComponent(moderation); 
-		} 
+		var element = e.target;
+		var tag = element.dataset.loltag;
+		var id = element.dataset.threadid;
+		var isloled = element.dataset.isoled == 'true';
+
+		var addr = 'http://' + myDomain + '/greasemonkey/shacklol/report.php?who=' + encodeURIComponent(username) + '&what=' + encodeURIComponent(id) + '&tag=' + encodeURIComponent(tag) + '&version=' + encodeURIComponent(version);
 		
-		//
-		var addr = 'http://' + myDomain + '/greasemonkey/shacklol/report.php?who=' + encodeURIComponent(username) + '&what=' + encodeURIComponent(id) + '&tag=' + encodeURIComponent(tag) + '&version=' + encodeURIComponent(version) + moderation;
+		if (isloled)
+		{
+			addr = addr + "&action=untag";
+		}
+		else
+		{
+			// Scrape the post's current moderation from the page (this is only done on Shacknews.com obviously) 
+			moderation = getModeration(id); 
+			if (moderation.length)
+			{
+				addr = addr +  '&moderation=' + encodeURIComponent(moderation); 
+			} 			
+		}
 
 		GM_log(addr);
 		
@@ -378,15 +388,21 @@
 		     		else
 	     			{
 	     				var taggd = '*';
-	     				for (i = 0; i < tag.length; i++)
+	     				if (isloled)
 	     				{
-	     					taggd += ' ' + tag[i].toUpperCase() + ' '; 
+	     					taggd = tag;
 	     				}
-	     				taggd += ' \' D *';
-	     				
-	     				var objLol = document.getElementById(result.responseText.substr(3));
-	     				objLol.setAttribute('onclick', '');
-	     				objLol.innerHTML = '<a href="http://' + myDomain + '/greasemonkey/shacklol/?user=' + encodeURIComponent(username) + '" style="color: #f00;">' + taggd + '</a>';
+	     				else
+	     				{
+		     				for (i = 0; i < tag.length; i++)
+		     				{
+		     					taggd += ' ' + tag[i].toUpperCase() + ' '; 
+		     				}
+		     				taggd += ' \' D *';
+	     				}
+
+					element.innerHTML = taggd;
+					element.dataset.isolated = !isolated;
 		     		}
 			      }
 			      catch (e)
